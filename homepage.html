@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Forge — Forge Your Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #10101a;
+      --border: #1e1e30;
+      --accent: #ff3cac;
+      --accent2: #00f5d4;
+      --accent3: #ffe600;
+      --text: #e8e8ff;
+      --muted: #5a5a80;
+      --glow-pink: 0 0 20px #ff3cac88, 0 0 60px #ff3cac33;
+      --glow-cyan: 0 0 20px #00f5d488, 0 0 60px #00f5d433;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── CUSTOM CURSOR ── */
+    #cursor {
+      position: fixed; width: 18px; height: 18px;
+      border: 2px solid var(--accent); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width .2s, height .2s, background .2s;
+      mix-blend-mode: difference;
+    }
+    #cursor.expand { width: 36px; height: 36px; background: #ff3cac22; }
+
+    /* ── SCAN LINES OVERLAY ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,.15) 2px,
+        rgba(0,0,0,.15) 4px
+      );
+      pointer-events: none; z-index: 998;
+    }
+
+    /* ── GRID BACKGROUND ── */
+    .grid-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,245,212,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,212,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* ── NOISE TEXTURE ── */
+    .noise {
+      position: fixed; inset: 0; z-index: 1;
+      opacity: .03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* ── WRAPPER ── */
+    .wrap { position: relative; z-index: 2; }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.2rem 3rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(10,10,15,.7);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900; font-size: 1.4rem;
+      letter-spacing: .1em;
+      color: var(--text);
+    }
+    .logo span { color: var(--accent); }
+
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      text-decoration: none; color: var(--muted);
+      font-size: .8rem; letter-spacing: .12em; text-transform: uppercase;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--accent2); }
+
+    .btn-nav {
+      background: transparent; border: 1px solid var(--accent);
+      color: var(--accent); padding: .5rem 1.4rem;
+      font-family: 'Orbitron', monospace; font-size: .75rem;
+      letter-spacing: .1em; text-transform: uppercase;
+      cursor: none; transition: background .2s, box-shadow .2s;
+    }
+    .btn-nav:hover {
+      background: var(--accent); color: #000;
+      box-shadow: var(--glow-pink);
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 4rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animated blobs */
+    .blob {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); pointer-events: none;
+    }
+    .blob-1 { width: 600px; height: 600px; background: #ff3cac22; top: -100px; left: -200px; animation: drift 8s ease-in-out infinite alternate; }
+    .blob-2 { width: 500px; height: 500px; background: #00f5d422; bottom: -100px; right: -150px; animation: drift 10s ease-in-out infinite alternate-reverse; }
+    .blob-3 { width: 300px; height: 300px; background: #ffe60015; top: 40%; left: 40%; animation: drift 12s ease-in-out infinite alternate; }
+
+    @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px, 30px) scale(1.1); } }
+
+    .hero-tag {
+      font-size: .75rem; letter-spacing: .25em; text-transform: uppercase;
+      color: var(--accent2); margin-bottom: 1.5rem;
+      border: 1px solid var(--accent2); display: inline-block;
+      padding: .3rem 1rem;
+      animation: fadeDown .6s ease both;
+    }
+
+    .hero h1 {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: clamp(3rem, 10vw, 7rem);
+      line-height: .95;
+      letter-spacing: -.02em;
+      animation: fadeDown .7s .1s ease both;
+    }
+    .hero h1 .line-1 { display: block; color: var(--text); }
+    .hero h1 .line-2 {
+      display: block;
+      -webkit-text-stroke: 2px var(--accent);
+      color: transparent;
+      text-shadow: var(--glow-pink);
+    }
+
+    .hero-sub {
+      margin: 2rem auto 0;
+      max-width: 560px;
+      color: var(--muted); font-size: .9rem; line-height: 1.7;
+      animation: fadeDown .8s .2s ease both;
+    }
+
+    .hero-cta {
+      display: flex; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; justify-content: center;
+      animation: fadeDown .9s .3s ease both;
+    }
+
+    .btn-primary {
+      background: var(--accent); color: #000;
+      font-family: 'Orbitron', monospace; font-weight: 700;
+      font-size: .85rem; letter-spacing: .12em; text-transform: uppercase;
+      padding: .9rem 2.4rem; border: none; cursor: none;
+      position: relative; overflow: hidden;
+      transition: box-shadow .3s, transform .2s;
+    }
+    .btn-primary:hover { box-shadow: var(--glow-pink); transform: translateY(-2px); }
+    .btn-primary::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
+      transform: translateX(-100%); transition: transform .5s;
+    }
+    .btn-primary:hover::after { transform: translateX(100%); }
+
+    .btn-ghost {
+      background: transparent; color: var(--text);
+      font-family: 'Orbitron', monospace; font-size: .85rem;
+      letter-spacing: .12em; text-transform: uppercase;
+      padding: .9rem 2.4rem;
+      border: 1px solid var(--border); cursor: none;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    /* pixel sprite deco */
+    .sprite-row {
+      margin-top: 4rem;
+      display: flex; gap: 1.5rem; align-items: flex-end;
+      animation: fadeDown 1s .4s ease both;
+    }
+    .sprite { font-size: 2.5rem; animation: hop .8s infinite alternate; }
+    .sprite:nth-child(2) { animation-delay: .15s; }
+    .sprite:nth-child(3) { animation-delay: .30s; }
+    .sprite:nth-child(4) { animation-delay: .45s; }
+    .sprite:nth-child(5) { animation-delay: .60s; }
+    @keyframes hop { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-24px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex; justify-content: space-around; flex-wrap: wrap;
+      padding: 2rem;
+    }
+    .stat { text-align: center; padding: 1rem 2rem; }
+    .stat-num {
+      font-family: 'Orbitron', monospace; font-size: 2.5rem; font-weight: 900;
+      color: var(--accent2);
+    }
+    .stat-num span { color: var(--accent); }
+    .stat-label { font-size: .75rem; letter-spacing: .15em; color: var(--muted); text-transform: uppercase; margin-top: .3rem; }
+
+    /* ── SECTION SHARED ── */
+    section { padding: 6rem 2rem; }
+    .section-tag {
+      font-size: .7rem; letter-spacing: .3em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 1rem; display: block;
+    }
+    .section-title {
+      font-family: 'Orbitron', monospace; font-weight: 900;
+      font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.1;
+    }
+    .section-title em { color: var(--accent2); font-style: normal; }
+    .section-sub { color: var(--muted); font-size: .9rem; line-height: 1.7; max-width: 500px; margin-top: 1rem; }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* ── COURSES ── */
+    #courses { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .courses-header { text-align: center; margin-bottom: 4rem; }
+    .courses-header .section-sub { margin: 1rem auto 0; }
+
+    .courses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5px;
+    }
+
+    .course-card {
+      background: var(--bg); padding: 2.5rem;
+      border: 1px solid var(--border);
+      position: relative; overflow: hidden;
+      transition: border-color .3s, transform .3s;
+      cursor: none;
+    }
+    .course-card::before {
+      content: ''; position: absolute; top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transform: scaleX(0); transform-origin: left;
+      transition: transform .3s;
+    }
+    .course-card:hover::before { transform: scaleX(1); }
+    .course-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+
+    .card-icon { font-size: 2.5rem; margin-bottom: 1.2rem; }
+    .card-badge {
+      display: inline-block; padding: .2rem .7rem;
+      font-size: .65rem; letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .badge-beginner { border: 1px solid #00f5d4; color: #00f5d4; }
+    .badge-mid { border: 1px solid var(--accent3); color: var(--accent3); }
+    .badge-adv { border: 1px solid var(--accent); color: var(--accent); }
+
+    .card-title {
+      font-family: 'Orbitron', monospace; font-weight: 700;
+      font-size: 1.1rem; margin-bottom: .8rem;
+    }
+    .card-desc { color: var(--muted); font-size: .82rem; line-height: 1.7; margin-bottom: 1.5rem; }
+    .card-meta { display: flex; gap: 1.5rem; font-size: .75rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .card-meta span::before { content: '▸ '; color: var(--accent2); }
+    .card-price {
+      font-family: 'Orbitron', monospace; font-weight: 700;
+      font-size: 1.4rem; color: var(--text);
+    }
+    .card-price small { font-size: .7rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+    /* ── WHY ── */
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+    @media (max-width: 768px) { .why-grid { grid-template-columns: 1fr; } }
+
+    .why-list { list-style: none; display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem; }
+    .why-item {
+      display: flex; gap: 1rem; align-items: flex-start;
+      padding: 1.2rem; border: 1px solid var(--border);
+      transition: border-color .2s;
+    }
+    .why-item:hover { border-color: var(--accent2); }
+    .why-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .why-text strong { display: block; font-family: 'Orbitron', monospace; font-size: .85rem; margin-bottom: .3rem; }
+    .why-text p { color: var(--muted); font-size: .8rem; line-height: 1.6; }
+
+    /* Terminal widget */
+    .terminal {
+      background: #080810; border: 1px solid var(--border);
+      font-family: 'Space Mono', monospace; font-size: .8rem;
+      overflow: hidden;
+    }
+    .term-bar {
+      background: var(--border); padding: .6rem 1rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; } .dot-y { background: #ffbd2e; } .dot-g { background: #28c840; }
+    .term-title { color: var(--muted); font-size: .7rem; margin-left: .5rem; }
+    .term-body { padding: 1.5rem; line-height: 2; }
+    .term-line { display: flex; gap: .5rem; overflow: hidden; }
+    .term-prompt { color: var(--accent); }
+    .term-cmd { color: var(--accent2); }
+    .term-out { color: var(--muted); padding-left: 1rem; }
+    .term-cursor { display: inline-block; width: 8px; height: 14px; background: var(--accent2); animation: blink .8s infinite; vertical-align: middle; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── TESTIMONIALS ── */
+    #depoimentos { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .testi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1.5rem; margin-top: 3rem; }
+    .testi-card {
+      padding: 2rem; border: 1px solid var(--border);
+      background: var(--bg); position: relative;
+    }
+    .testi-card::before {
+      content: '"'; position: absolute; top: 1rem; right: 1.5rem;
+      font-size: 5rem; color: var(--border);
+      font-family: 'Orbitron', monospace; line-height: 1;
+    }
+    .testi-text { color: var(--muted); font-size: .85rem; line-height: 1.7; margin-bottom: 1.5rem; }
+    .testi-author { display: flex; align-items: center; gap: 1rem; }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 0;
+      font-size: 1.3rem; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--accent); flex-shrink: 0;
+    }
+    .author-name { font-family: 'Orbitron', monospace; font-size: .8rem; }
+    .author-role { font-size: .7rem; color: var(--muted); }
+    .stars { color: var(--accent3); font-size: .85rem; margin-bottom: .8rem; }
+
+    /* ── CTA FINAL ── */
+    .cta-section {
+      text-align: center; padding: 8rem 2rem;
+      position: relative; overflow: hidden;
+    }
+    .cta-section .blob-1 { left: 50%; transform: translateX(-50%); top: -50px; }
+    .cta-section h2 {
+      font-family: 'Orbitron', monospace; font-weight: 900;
+      font-size: clamp(2rem, 5vw, 4rem); margin-bottom: 1.5rem;
+    }
+    .cta-section p { color: var(--muted); max-width: 500px; margin: 0 auto 2.5rem; }
+    .cta-input-row { display: flex; gap: 0; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    .cta-input {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: .9rem 1.5rem;
+      font-family: 'Space Mono', monospace; font-size: .85rem;
+      outline: none; width: 300px;
+      transition: border-color .2s;
+    }
+    .cta-input:focus { border-color: var(--accent2); }
+    .cta-note { font-size: .7rem; color: var(--muted); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border); padding: 3rem 2rem;
+      background: var(--surface);
+    }
+    .footer-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem;
+    }
+    @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+    .footer-brand p { color: var(--muted); font-size: .8rem; line-height: 1.7; margin-top: .8rem; }
+    .footer-col h4 { font-family: 'Orbitron', monospace; font-size: .75rem; letter-spacing: .1em; margin-bottom: 1rem; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: .6rem; }
+    .footer-col a { color: var(--muted); text-decoration: none; font-size: .8rem; transition: color .2s; }
+    .footer-col a:hover { color: var(--accent2); }
+    .footer-bottom {
+      max-width: 1200px; margin: 2rem auto 0;
+      border-top: 1px solid var(--border); padding-top: 1.5rem;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+      font-size: .75rem; color: var(--muted);
+    }
+    .social-links { display: flex; gap: 1rem; }
+    .social-links a {
+      color: var(--muted); font-size: 1.2rem; text-decoration: none;
+      transition: color .2s;
+    }
+    .social-links a:hover { color: var(--accent); }
+
+    /* ── SCROLL REVEAL ── */
+    .reveal { opacity: 0; transform: translateY(30px); transition: opacity .6s, transform .6s; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── GLITCH TEXT ── */
+    .glitch { position: relative; }
+    .glitch::before, .glitch::after {
+      content: attr(data-text);
+      position: absolute; inset: 0;
+      font-family: inherit; font-weight: inherit; font-size: inherit; color: inherit;
+    }
+    .glitch::before { color: var(--accent); clip-path: polygon(0 0,100% 0,100% 33%,0 33%); animation: glitch1 3s infinite; }
+    .glitch::after { color: var(--accent2); clip-path: polygon(0 66%,100% 66%,100% 100%,0 100%); animation: glitch2 3s infinite; }
+    @keyframes glitch1 { 0%,90%,100%{transform:translate(0)} 92%{transform:translate(-3px,1px)} 94%{transform:translate(3px,-1px)} 96%{transform:translate(0)} }
+    @keyframes glitch2 { 0%,88%,100%{transform:translate(0)} 90%{transform:translate(3px,-1px)} 92%{transform:translate(-3px,2px)} 94%{transform:translate(0)} }
+
+    /* ── MOBILE ── */
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      .hero h1 { font-size: 3rem; }
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+
+    /* PROGRESS BAR */
+    #progress { position:fixed; top:0; left:0; height:2px; background:linear-gradient(90deg,var(--accent),var(--accent2)); z-index:999; width:0; transition:width .1s; }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="progress"></div>
+<div class="grid-bg"></div>
+<div class="noise"></div>
+
+<div class="wrap">
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">PIXEL<span>FORGE</span></div>
+    <ul class="nav-links">
+      <li><a href="#cursos">Cursos</a></li>
+      <li><a href="#sobre">Por que nós</a></li>
+      <li><a href="#depoimentos">Depoimentos</a></li>
+    </ul>
+    <button class="btn-nav" onclick="handleCTA()">Começar Agora</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="hero-tag">// nova temporada de cursos disponível</div>
+
+    <h1>
+      <span class="line-1 glitch" data-text="FORGE YOUR">FORGE YOUR</span>
+      <span class="line-2 glitch" data-text="GAME.">GAME.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Do zero ao lançamento — aprenda a criar jogos incríveis com os melhores instrutores da cena indie. Unity, Godot, Unreal, pixel art e muito mais.
+    </p>
+
+    <div class="hero-cta">
+      <button class="btn-primary" onclick="handleCTA()">▶ Ver Todos os Cursos</button>
+      <button class="btn-ghost" onclick="handleDemo()">⬡ Assistir Demo Grátis</button>
+    </div>
+
+    <div class="sprite-row">
+      <span class="sprite">🕹️</span>
+      <span class="sprite">⚔️</span>
+      <span class="sprite">🎮</span>
+      <span class="sprite">🏆</span>
+      <span class="sprite">🚀</span>
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar reveal">
+    <div class="stat">
+      <div class="stat-num" id="s1">0<span>+</span></div>
+      <div class="stat-label">Alunos Formados</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s2">0<span>+</span></div>
+      <div class="stat-label">Horas de Conteúdo</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s3">0<span>+</span></div>
+      <div class="stat-label">Jogos Publicados</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s4">0<span>%</span></div>
+      <div class="stat-label">Satisfação dos Alunos</div>
+    </div>
+  </div>
+
+  <!-- COURSES -->
+  <section id="cursos">
+    <div class="container">
+      <div class="courses-header reveal">
+        <span class="section-tag">// trilhas de aprendizado</span>
+        <h2 class="section-title">Escolha seu <em>próximo nível</em></h2>
+        <p class="section-sub">Cursos práticos, projetos reais e comunidade ativa para você evoluir do tutorial ao jogo publicado.</p>
+      </div>
+
+      <div class="courses-grid reveal">
+
+        <div class="course-card">
+          <div class="card-icon">🌱</div>
+          <span class="card-badge badge-beginner">Iniciante</span>
+          <h3 class="card-title">Game Dev do Zero com Godot</h3>
+          <p class="card-desc">Aprenda os fundamentos da criação de jogos 2D usando o Godot Engine. Do primeiro script ao primeiro jogo publicado.</p>
+          <div class="card-meta">
+            <span>42 aulas</span>
+            <span>18h de vídeo</span>
+            <span>Certificado</span>
+          </div>
+          <div class="card-price">R$ 197 <small>/ acesso vitalício</small></div>
+        </div>
+
+        <div class="course-card">
+          <div class="card-icon">⚔️</div>
+          <span class="card-badge badge-mid">Intermediário</span>
+          <h3 class="card-title">RPG Completo em Unity</h3>
+          <p class="card-desc">Crie um RPG completo com sistema de inventário, combate por turnos, mapa de mundo e diálogos dinâmicos em C#.</p>
+          <div class="card-meta">
+            <span>78 aulas</span>
+            <span>36h de vídeo</span>
+            <span>Projeto Final</span>
+          </div>
+          <div class="card-price">R$ 347 <small>/ acesso vitalício</small></div>
+        </div>
+
+        <div class="course-card">
+          <div class="card-icon">🎨</div>
+          <span class="card-badge badge-beginner">Iniciante</span>
+          <h3 class="card-title">Pixel Art Profissional</h3>
+          <p class="card-desc">Domine a arte de pixels: characters, tilesets, animações e efeitos visuais usando Aseprite e Piskel.</p>
+          <div class="card-meta">
+            <span>55 aulas</span>
+            <span>22h de vídeo</span>
+            <span>Portfolio</span>
+          </div>
+          <div class="card-price">R$ 247 <small>/ acesso vitalício</small></div>
+        </div>
+
+        <div class="course-card">
+          <div class="card-icon">🚀</div>
+          <span class="card-badge badge-adv">Avançado</span>
+          <h3 class="card-title">Shader & VFX em Unreal 5</h3>
+          <p class="card-desc">Crie efeitos visuais cinematográficos com Blueprint e HLSL. Explosões, magia, distorção espacial e ray tracing.</p>
+          <div class="card-meta">
+            <span>60 aulas</span>
+            <span>28h de vídeo</span>
+            <span>Demos Reais</span>
+          </div>
+          <div class="card-price">R$ 497 <small>/ acesso vitalício</small></div>
+        </div>
+
+        <div class="course-card">
+          <div class="card-icon">🔊</div>
+          <span class="card-badge badge-mid">Intermediário</span>
+          <h3 class="card-title">Sound Design para Games</h3>
+          <p class="card-desc">Crie trilhas sonoras épicas e efeitos de som imersivos usando FMOD, Audacity e técnicas de foley.</p>
+          <div class="card-meta">
+            <span>38 aulas</span>
+            <span>16h de vídeo</span>
+            <span>Assets inclusos</span>
+          </div>
+          <div class="card-price">R$ 197 <small>/ acesso vitalício</small></div>
+        </div>
+
+        <div class="course-card">
+          <div class="card-icon">💡</div>
+          <span class="card-badge badge-adv">Avançado</span>
+          <h3 class="card-title">Game Design & Monetização</h3>
+          <p class="card-desc">Aprenda a prototipar, testar e lançar jogos no Steam e mobile com estratégias reais de marketing indie.</p>
+          <div class="card-meta">
+            <span>45 aulas</span>
+            <span>20h de vídeo</span>
+            <span>Mentorias</span>
+          </div>
+          <div class="card-price">R$ 397 <small>/ acesso vitalício</small></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY PIXEL FORGE -->
+  <section id="sobre">
+    <div class="container">
+      <div class="why-grid">
+        <div class="reveal">
+          <span class="section-tag">// por que a pixel forge</span>
+          <h2 class="section-title">Aprenda com quem <em>faz jogos</em></h2>
+          <p class="section-sub">Nossos instrutores são devs indie com jogos publicados e reconhecidos na cena internacional.</p>
+          <ul class="why-list">
+            <li class="why-item">
+              <span class="why-icon">⚡</span>
+              <div class="why-text">
+                <strong>Conteúdo 100% Prático</strong>
+                <p>Cada aula tem um projeto real. Você aprende fazendo, não só assistindo.</p>
+              </div>
+            </li>
+            <li class="why-item">
+              <span class="why-icon">🌐</span>
+              <div class="why-text">
+                <strong>Comunidade Ativa no Discord</strong>
+                <p>Mais de 8.000 devs para tirar dúvidas, trocar ideias e formar equipes.</p>
+              </div>
+            </li>
+            <li class="why-item">
+              <span class="why-icon">♾️</span>
+              <div class="why-text">
+                <strong>Acesso Vitalício + Updates</strong>
+                <p>Pagou uma vez, tem para sempre. Incluindo todas as atualizações futuras.</p>
+              </div>
+            </li>
+            <li class="why-item">
+              <span class="why-icon">🏅</span>
+              <div class="why-text">
+                <strong>Certificado Reconhecido</strong>
+                <p>Nosso certificado é aceito por estúdios parceiros no Brasil e exterior.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Terminal -->
+        <div class="terminal reveal">
+          <div class="term-bar">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span class="term-title">pixel-forge — bash</span>
+          </div>
+          <div class="term-body" id="terminal-body">
+            <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd"> whoami</span></div>
+            <div class="term-line term-out">→ game_developer_in_progress</div>
+            <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd"> ls ./skills/</span></div>
+            <div class="term-line term-out">unity/  godot/  unreal/  pixel-art/  sound/</div>
+            <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd"> cat progress.log</span></div>
+            <div class="term-line term-out">✔ Fase 1: Lógica de programação</div>
+            <div class="term-line term-out">✔ Fase 2: Engine e física</div>
+            <div class="term-line term-out">✔ Fase 3: Arte e animação</div>
+            <div class="term-line term-out">▶ Fase 4: Publicação no Steam...</div>
+            <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd"> </span><span class="term-cursor"></span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="depoimentos">
+    <div class="container">
+      <div class="reveal" style="text-align:center; margin-bottom:1rem;">
+        <span class="section-tag">// o que dizem nossos alunos</span>
+        <h2 class="section-title">Histórias <em>reais</em></h2>
+      </div>
+      <div class="testi-grid">
+
+        <div class="testi-card reveal">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">Comecei sem saber nada de programação. Depois de 3 meses na Pixel Forge, lancei meu primeiro jogo no itch.io e já vendi mais de 200 cópias!</p>
+          <div class="testi-author">
+            <div class="avatar">🧑‍💻</div>
+            <div>
+              <div class="author-name">Carlos M.</div>
+              <div class="author-role">Desenvolvedor Indie · SP</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testi-card reveal">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">O curso de Pixel Art transformou meu estilo. Os instrutores são da cena real — não é aquele conteúdo genérico de YouTube. Vale cada centavo.</p>
+          <div class="testi-author">
+            <div class="avatar">👩‍🎨</div>
+            <div>
+              <div class="author-name">Larissa T.</div>
+              <div class="author-role">Artista de Games · MG</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testi-card reveal">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">Fiz o curso de Unity e consegui meu primeiro emprego em um estúdio em 4 meses. A comunidade do Discord foi essencial para networking.</p>
+          <div class="testi-author">
+            <div class="avatar">🎮</div>
+            <div>
+              <div class="author-name">Rafael S.</div>
+              <div class="author-role">Unity Dev Jr · RJ</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="cta-section">
+    <div class="blob blob-1" style="width:700px;height:700px;opacity:.4;"></div>
+    <div class="container">
+      <div class="reveal">
+        <h2>Pronto para <span style="color:var(--accent)">forjar</span> seu jogo?</h2>
+        <p>Entre para a lista e receba 20% de desconto no seu primeiro curso + acesso à nossa aula gratuita de introdução.</p>
+        <div class="cta-input-row">
+          <input class="cta-input" type="email" placeholder="seu@email.com" id="emailInput" />
+          <button class="btn-primary" onclick="handleEmail()">Quero o Desconto ▶</button>
+        </div>
+        <p class="cta-note">Sem spam. Cancele quando quiser.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo">PIXEL<span style="color:var(--accent)">FORGE</span></div>
+        <p>Transformando curiosidade em jogos. A escola de game dev para quem quer criar, não só jogar.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Cursos</h4>
+        <ul>
+          <li><a href="#">Godot para Iniciantes</a></li>
+          <li><a href="#">Unity RPG</a></li>
+          <li><a href="#">Pixel Art</a></li>
+          <li><a href="#">Unreal VFX</a></li>
+          <li><a href="#">Sound Design</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Empresa</h4>
+        <ul>
+          <li><a href="#">Sobre nós</a></li>
+          <li><a href="#">Instrutores</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Carreiras</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Suporte</h4>
+        <ul>
+          <li><a href="#">FAQ</a></li>
+          <li><a href="#">Discord</a></li>
+          <li><a href="#">Contato</a></li>
+          <li><a href="#">Política de Reembolso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Pixel Forge Ltda. — Projeto Escolar Fictício</span>
+      <div class="social-links">
+        <a href="#" title="Twitter">✕</a>
+        <a href="#" title="Instagram">◈</a>
+        <a href="#" title="YouTube">▶</a>
+        <a href="#" title="Discord">⬡</a>
+      </div>
+    </div>
+  </footer>
+
+</div><!-- /wrap -->
+
+<script>
+  // ── CURSOR ──
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top  = e.clientY + 'px';
+  });
+  document.querySelectorAll('a, button, .course-card, .why-item').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('expand'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('expand'));
+  });
+
+  // ── SCROLL PROGRESS ──
+  window.addEventListener('scroll', () => {
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    document.getElementById('progress').style.width = pct + '%';
+  });
+
+  // ── SCROLL REVEAL ──
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ── COUNTER ANIMATION ──
+  const targets = [
+    { id: 's1', end: 12400, suffix: '+' },
+    { id: 's2', end: 850,   suffix: '+' },
+    { id: 's3', end: 3200,  suffix: '+' },
+    { id: 's4', end: 98,    suffix: '%' },
+  ];
+
+  const statsBar = document.querySelector('.stats-bar');
+  let counted = false;
+  const statsObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !counted) {
+      counted = true;
+      targets.forEach(({ id, end, suffix }) => {
+        const el = document.getElementById(id);
+        let current = 0;
+        const step = end / 60;
+        const timer = setInterval(() => {
+          current = Math.min(current + step, end);
+          el.innerHTML = Math.floor(current).toLocaleString('pt-BR') + '<span>' + suffix + '</span>';
+          if (current >= end) clearInterval(timer);
+        }, 20);
+      });
+    }
+  }, { threshold: 0.3 });
+  if (statsBar) statsObs.observe(statsBar);
+
+  // ── CTA HANDLERS ──
+  function handleCTA() {
+    const section = document.getElementById('cursos');
+    section.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function handleDemo() {
+    showToast('🎮 Demo em breve! Entre na lista para ser notificado.');
+  }
+
+  function handleEmail() {
+    const val = document.getElementById('emailInput').value;
+    if (!val.includes('@')) { showToast('⚠ Por favor insira um e-mail válido.'); return; }
+    showToast('🚀 Show! Você receberá o desconto em breve. Bem-vindo à Forge!');
+    document.getElementById('emailInput').value = '';
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    Object.assign(t.style, {
+      position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%) translateY(20px)',
+      background: '#10101a', border: '1px solid #ff3cac', color: '#e8e8ff',
+      fontFamily: "'Space Mono', monospace", fontSize: '.8rem',
+      padding: '.8rem 1.8rem', zIndex: '9999',
+      opacity: '0', transition: 'all .3s',
+      whiteSpace: 'nowrap'
+    });
+    document.body.appendChild(t);
+    requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)'; });
+    setTimeout(() => {
+      t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)';
+      setTimeout(() => t.remove(), 400);
+    }, 3500);
+  }
+
+  // ── TERMINAL TYPEWRITER ──
+  const termBody = document.getElementById('terminal-body');
+  const lines = termBody.querySelectorAll('.term-line');
+  lines.forEach((line, i) => {
+    line.style.opacity = '0';
+    setTimeout(() => { line.style.transition = 'opacity .3s'; line.style.opacity = '1'; }, 400 + i * 250);
+  });
+</script>
+</body>
+</html>
